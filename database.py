@@ -10,4 +10,9 @@ Base = declarative_base()
 
 def init_db():
     """Initialize the database by creating tables."""
-    Base.metadata.create_all(bind=engine)
+    from models import User, JournalEntry, MoodPattern  # Import here to avoid circular import
+    try:
+        Base.metadata.create_all(bind=engine)
+        print("Database tables created successfully.")
+    except Exception as e:
+        print(f"An error occurred while creating database tables: {e}")

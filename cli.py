@@ -1,7 +1,9 @@
 import click
 from database import SessionLocal, init_db
-from models import User, JournalEntry
+from models import User, JournalEntry, MoodPattern
 from datetime import date
+import random
+from collections import defaultdict
 
 @click.group()
 def cli():
@@ -17,7 +19,6 @@ def init():
 @cli.command()
 def start():
     """Start the Reflectra application"""
-    # No need to call main directly here. Click will handle command execution.
     main()
 
 def main():
@@ -86,6 +87,147 @@ def login():
         except Exception as e:
             click.echo(f"An error occurred: {e}. Please try again.")
 
+def create_journal_entry(user):
+    """Creates a new journal entry for the logged-in user"""
+    mood = click.prompt("How are you feeling today?")
+    content = click.prompt("What's on your mind?", default="", show_default=False)
+    entry = JournalEntry(user_id=user.id, date=date.today(), mood=mood, content=content)
+    
+    with SessionLocal() as session:
+        session.add(entry)
+        session.commit()
+    click.echo("Journal entry created successfully!")
+    
+    # Update mood patterns based on the new entry
+    update_mood_patterns(user, mood)
+
+    # Display suggestions and motivational quote
+    suggest_journal_entry(user)
+    display_motivational_quote()
+
+def update_mood_patterns(user, mood):
+    """Updates mood patterns based on the latest journal entry."""
+    with SessionLocal() as session:
+        # Check if a pattern exists for the user
+        mood_pattern = session.query(MoodPattern).filter_by(user_id=user.id).first()
+        
+        if mood_pattern:
+            # If a pattern exists, update it or append to it
+            mood_pattern.pattern += f", {mood}"  # Simple example of updating
+            session.commit()
+        else:
+            # If no pattern exists, create a new one
+            new_pattern = MoodPattern(user_id=user.id, pattern=mood)
+            session.add(new_pattern)
+            session.commit()
+        
+        click.echo(f"Mood pattern updated: {mood}")
+
+def suggest_journal_entry(user):
+    """Suggest journal entry topics based on past mood patterns."""
+    with SessionLocal() as session:
+        entries = session.query(JournalEntry).filter_by(user_id=user.id).order_by(JournalEntry.date.desc()).limit(5).all()
+    
+    if not entries:
+        click.echo("No recent journal entries available for suggestions.")
+        return
+
+    recent_moods = [entry.mood for entry in entries]
+    mood_counts = {mood: recent_moods.count(mood) for mood in set(recent_moods)}
+    most_common_mood = max(mood_counts, key=mood_counts.get)
+
+    suggestions = {
+        'happy': "You seem to be in good spirits lately! Write about what’s been bringing you joy.",
+        'sad': "It's okay to feel down. Maybe journaling about your thoughts can help.",
+        'neutral': "Reflect on your day-to-day. What small changes could bring more joy?",
+        'stressed': "It seems like stress has been present. How do you cope with it?",
+    }
+
+    suggestion = suggestions.get(most_common_mood, "How about reflecting on your recent experiences?")
+    click.echo(f"\n--- Journal Entry Suggestion ---\n{suggestion}")
+
+def display_motivational_quote():
+    """Display a random motivational quote after a journal entry."""
+    motivational_quotes = [
+        "Believe in yourself! You are capable of more than you know.",
+        "This too shall pass.",
+        "Every day is a new beginning. Take a deep breath and start again.",
+        "You are stronger than you think.",
+        "Positivity always wins!"
+    ]
+    quote = random.choice(motivational_quotes)
+    click.echo(f"\n--- Daily Affirmation ---\n{quote}")
+
+def analyze_mood_patterns(user):
+    """Analyzes mood patterns and detects fluctuations in mood."""
+    with SessionLocal() as session:
+        entries = session.query(JournalEntry).filter_by(user_id=user.id).order_by(JournalEntry.date).all()
+    
+    if not entries:
+        click.echo("No journal entries found for mood analysis.")
+        return
+
+    mood_fluctuations = []
+    mood_count = defaultdict(int)
+    previous_mood = entries[0].mood  # Start with the first mood
+    mood_count[previous_mood] += 1  # Count the first mood
+
+    for entry in entries[1:]:
+        current_mood = entry.mood
+        mood_count[current_mood] += 1
+        # Check for a change in mood
+        if previous_mood != current_mood:
+            mood_fluctuations.append((entry.date, previous_mood, current_mood))
+        previous_mood = current_mood
+
+    # Display results
+    if mood_fluctuations:
+        click.echo("\n--- Mood Fluctuations Detected ---")
+        for date, old_mood, new_mood in mood_fluctuations:
+            click.echo(f"On {date}, mood changed from {old_mood} to {new_mood}.")
+    else:
+        click.echo("No significant mood fluctuations detected.")
+
+    # Display mood statistics
+    click.echo("\n--- Mood Statistics ---")
+    for mood, count in mood_count.items():
+        click.echo(f"{mood}: {count} times")
+
+    # Calculate and display average mood
+    mood_scale = {
+        "very_happy": 5,
+        "happy": 4,
+        "neutral": 3,
+        "sad": 2,
+        "very_sad": 1,
+    }
+    
+    total_mood_value = sum(mood_scale.get(mood, 3) * count for mood, count in mood_count.items())
+    total_entries = sum(mood_count.values())
+    average_mood = total_mood_value / total_entries if total_entries > 0 else 3  # Default to neutral
+    click.echo(f"Average mood: {average_mood:.2f} (on a scale of 1-5)")
+
+    # Prompt for feedback
+    feedback = click.prompt("Do you feel this analysis reflects your mood trends? (yes/no)", type=str)
+    click.echo(f"Feedback received: {feedback}")
+
+    # Respond to feedback
+    if feedback.lower() == 'no':
+        click.echo("I'm sorry to hear that! Can you tell me what you feel was missing in this analysis?")
+        specific_feedback = click.prompt("Your thoughts: ")
+        # Save specific_feedback to the database for future reference if desired
+
+    # Provide suggestions based on mood
+    if average_mood < 3:
+        click.echo("It seems like your average mood is leaning towards the negative side. Here are some suggestions:")
+        click.echo("- Consider taking a short walk to clear your mind.")
+        click.echo("- Try writing down things you're grateful for.")
+        click.echo("- Remember to reach out to friends or loved ones for support.")
+    elif average_mood > 4:
+        click.echo("Great to see your mood is positive! Keep it up!")
+    else:
+        click.echo("Your mood seems neutral. Perhaps engage in an activity that brings you joy!")
+
 def journal_entry_menu(user):
     """Journal entry management menu for the logged-in user"""
     while True:
@@ -93,88 +235,98 @@ def journal_entry_menu(user):
             click.echo("\n--- Journal Entry Menu ---")
             click.echo("1. Create Journal Entry")
             click.echo("2. View Journal Entries")
-            click.echo("3. Update a Journal Entry")
-            click.echo("4. Delete a Journal Entry")
-            click.echo("5. Logout")
+            click.echo("3. Analyze Mood Patterns")  # New option
+            click.echo("4. Update a Journal Entry")
+            click.echo("5. Delete a Journal Entry")
+            click.echo("6. Logout")
             
-            try:
-                choice = click.prompt("Enter your choice (1-5)", type=int)
-            except ValueError:
-                click.echo("Invalid input. Please enter a number between 1 and 5.")
-                continue
-            
-            if choice == 1:
-                create_journal_entry(user)
-            elif choice == 2:
-                view_journal_entries(user)
-            elif choice == 3:
-                update_journal_entry(user)
-            elif choice == 4:
-                delete_journal_entry(user)
-            elif choice == 5:
-                click.echo("Logged out successfully.")
-                break
-            else:
-                click.echo("Invalid choice. Please enter a number between 1 and 5.")
-        except Exception as e:
-            click.echo(f"An error occurred: {e}. Please try again.")
-
-def create_journal_entry(user):
-    """Creates a new journal entry for the logged-in user"""
-    mood = click.prompt("How are you feeling today?")
-    content = click.prompt("What's on your mind?", default="", show_default=False)
-    entry = JournalEntry(user_id=user.id, date=date.today(), mood=mood, content=content)
-    with SessionLocal() as session:
-        session.add(entry)
-        session.commit()
-    click.echo("Journal entry created successfully!")
+            choice = click.prompt("Enter your choice (1-6)", type=int)
+        except ValueError:
+            click.echo("Invalid input. Please enter a number between 1 and 6.")
+            continue
+        
+        if choice == 1:
+            create_journal_entry(user)
+        elif choice == 2:
+            view_journal_entries(user)
+        elif choice == 3:
+            analyze_mood_patterns(user)
+        elif choice == 4:
+            update_journal_entry(user)
+        elif choice == 5:
+            delete_journal_entry(user)
+        elif choice == 6:
+            click.echo("Logged out successfully!")
+            break
+        else:
+            click.echo("Invalid choice. Please enter a number between 1 and 6.")
 
 def view_journal_entries(user):
-    """Displays all journal entries for the logged-in user"""
+    """View all journal entries for the logged-in user"""
     with SessionLocal() as session:
         entries = session.query(JournalEntry).filter_by(user_id=user.id).all()
-    if entries:
-        for entry in entries:
-            click.echo(f"{entry.id}: {entry.date}: {entry.mood} - {entry.content}")
-    else:
+    
+    if not entries:
         click.echo("No journal entries found.")
+        return
+
+    click.echo("\n--- Your Journal Entries ---")
+    for entry in entries:
+        click.echo(f"[{entry.date}] Mood: {entry.mood}\n{entry.content}\n")
 
 def update_journal_entry(user):
-    """Updates an existing journal entry"""
-    while True:
-        try:
-            entry_id = click.prompt("Enter the ID of the entry to update", type=int)
-            with SessionLocal() as session:
-                entry = session.query(JournalEntry).filter_by(id=entry_id, user_id=user.id).first()
+    """Update an existing journal entry"""
+    with SessionLocal() as session:
+        entries = session.query(JournalEntry).filter_by(user_id=user.id).all()
+    
+    if not entries:
+        click.echo("No journal entries found to update.")
+        return
 
-            if entry:
-                mood = click.prompt(f"Update mood (current: {entry.mood})", default=entry.mood)
-                content = click.prompt(f"Update content (current: {entry.content})", default=entry.content)
-                
-                # Update the entry
-                entry.mood = mood
-                entry.content = content
-                session.commit()
-                
-                click.echo("Journal entry updated successfully!")
-                break
-            else:
-                click.echo("Journal entry not found or you do not have permission to edit it. Please try again.")
-        except Exception as e:
-            click.echo(f"An error occurred: {e}. Please try again.")
+    click.echo("\n--- Select Entry to Update ---")
+    for index, entry in enumerate(entries):
+        click.echo(f"{index + 1}. [{entry.date}] Mood: {entry.mood}\n{entry.content}")
+
+    try:
+        choice = click.prompt("Enter the number of the entry to update", type=int) - 1
+        if choice < 0 or choice >= len(entries):
+            click.echo("Invalid choice.")
+            return
+
+        mood = click.prompt("New mood", default=entries[choice].mood)
+        content = click.prompt("New content", default=entries[choice].content)
+        entries[choice].mood = mood
+        entries[choice].content = content
+
+        session.commit()
+        click.echo("Journal entry updated successfully!")
+    except Exception as e:
+        click.echo(f"An error occurred while updating the entry: {e}")
 
 def delete_journal_entry(user):
-    """Deletes a journal entry"""
-    entry_id = click.prompt("Enter the ID of the entry to delete", type=int)
+    """Delete a specific journal entry"""
     with SessionLocal() as session:
-        entry = session.query(JournalEntry).filter_by(id=entry_id, user_id=user.id).first()
+        entries = session.query(JournalEntry).filter_by(user_id=user.id).all()
+    
+    if not entries:
+        click.echo("No journal entries found to delete.")
+        return
 
-    if entry:
-        session.delete(entry)
+    click.echo("\n--- Select Entry to Delete ---")
+    for index, entry in enumerate(entries):
+        click.echo(f"{index + 1}. [{entry.date}] Mood: {entry.mood}\n{entry.content}")
+
+    try:
+        choice = click.prompt("Enter the number of the entry to delete", type=int) - 1
+        if choice < 0 or choice >= len(entries):
+            click.echo("Invalid choice.")
+            return
+
+        session.delete(entries[choice])
         session.commit()
         click.echo("Journal entry deleted successfully!")
-    else:
-        click.echo("Journal entry not found.")
+    except Exception as e:
+        click.echo(f"An error occurred while deleting the entry: {e}")
 
 if __name__ == "__main__":
     cli()

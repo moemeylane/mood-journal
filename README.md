@@ -27,19 +27,34 @@ Initialize the Database
 Run the following command to create the necessary database tables:
 
 `python -c "from database import Base, engine; Base.metadata.create_all(engine)"`
-Usage
-Starting the Application
+# Usage
+# Starting the Application
 To start Reflectra, run the CLI application with the following command:
 
-`python cli.py`
+`python cli.py start`
 You will see a prompt with options to register or log in.
 
 Registering a New User
-Select Register by typing 1 and press Enter.
+Select Register by typing ;`python cli.py register`
 
 Follow the prompts to enter your name, email, and password. You will need to confirm your password.
 
 Logging In
-Select Login by typing 2 and press Enter.
+Select Login by typing ;`python cli.py login`
 User Registration: Create a new account with your name, email, and password.
-User Login: Log in to your existing account using your email and password.
+# User Login
+Log in to your existing account using your email and password.
+# Creating a Journal Entry
+After logging in, you can create a new journal entry by selecting the option from the menu. You will be prompted to describe your mood and any thoughts you want to record.
+
+# Viewing Journal Entries
+You can view all your past journal entries, along with the recorded moods.
+
+# Analyzing Mood Patterns
+Select the option to analyze your mood patterns. The application will display detected mood fluctuations based on your entries and prompt you for feedback on the analysis.
+
+# Suggestions and Motivational Quotes
+After creating a journal entry, Reflectra will suggest topics based on your past mood patterns and display a random motivational quote to encourage you.
+
+# Updating and Deleting Entries
+You can update or delete your existing journal entries through the menu options.
