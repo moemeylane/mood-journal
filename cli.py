@@ -113,7 +113,7 @@ def update_mood_patterns(user, mood):
         
         if mood_pattern:
             # If a pattern exists, update it or append to it
-            mood_pattern.pattern += f", {mood}"  # Simple example of updating
+            mood_pattern.pattern += f", {mood}"  
             session.commit()
         else:
             # If no pattern exists, create a new one
@@ -215,7 +215,7 @@ def analyze_mood_patterns(user):
     if feedback.lower() == 'no':
         click.echo("I'm sorry to hear that! Can you tell me what you feel was missing in this analysis?")
         specific_feedback = click.prompt("Your thoughts: ")
-        # Save specific_feedback to the database for future reference if desired
+       
 
     # Provide suggestions based on mood
     if average_mood < 3:
@@ -235,7 +235,7 @@ def journal_entry_menu(user):
             click.echo("\n--- Journal Entry Menu ---")
             click.echo("1. Create Journal Entry")
             click.echo("2. View Journal Entries")
-            click.echo("3. Analyze Mood Patterns")  # New option
+            click.echo("3. Analyze Mood Patterns")  
             click.echo("4. Update a Journal Entry")
             click.echo("5. Delete a Journal Entry")
             click.echo("6. Logout")
