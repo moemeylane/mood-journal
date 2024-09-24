@@ -30,17 +30,18 @@ Run the following command to create the necessary database tables:
 # Usage
 # Starting the Application
 To start Reflectra, run the CLI application with the following command:
+ Run `python cli.py init` to initialize the database
 
 `python cli.py start`
 You will see a prompt with options to register or log in.
 
 Registering a New User
-Select Register by typing ;`python cli.py register`
+press 1
 
 Follow the prompts to enter your name, email, and password. You will need to confirm your password.
 
 Logging In
-Select Login by typing ;`python cli.py login`
+To log in press 2
 User Registration: Create a new account with your name, email, and password.
 # User Login
 Log in to your existing account using your email and password.

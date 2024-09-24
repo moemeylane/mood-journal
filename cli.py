@@ -45,7 +45,6 @@ def main():
         else:
             click.echo("Invalid choice. Please enter a number between 1 and 3.")
 
-@cli.command()
 def register():
     """Handles user registration"""
     while True:
@@ -67,7 +66,6 @@ def register():
         except Exception as e:
             click.echo(f"An error occurred: {e}. Please try again.")
 
-@cli.command()
 def login():
     """Handles user login and provides access to journal entry management"""
     while True:
@@ -86,147 +84,6 @@ def login():
                 click.echo("Invalid email or password. Please try again.")
         except Exception as e:
             click.echo(f"An error occurred: {e}. Please try again.")
-
-def create_journal_entry(user):
-    """Creates a new journal entry for the logged-in user"""
-    mood = click.prompt("How are you feeling today?")
-    content = click.prompt("What's on your mind?", default="", show_default=False)
-    entry = JournalEntry(user_id=user.id, date=date.today(), mood=mood, content=content)
-    
-    with SessionLocal() as session:
-        session.add(entry)
-        session.commit()
-    click.echo("Journal entry created successfully!")
-    
-    # Update mood patterns based on the new entry
-    update_mood_patterns(user, mood)
-
-    # Display suggestions and motivational quote
-    suggest_journal_entry(user)
-    display_motivational_quote()
-
-def update_mood_patterns(user, mood):
-    """Updates mood patterns based on the latest journal entry."""
-    with SessionLocal() as session:
-        # Check if a pattern exists for the user
-        mood_pattern = session.query(MoodPattern).filter_by(user_id=user.id).first()
-        
-        if mood_pattern:
-            # If a pattern exists, update it or append to it
-            mood_pattern.pattern += f", {mood}"  
-            session.commit()
-        else:
-            # If no pattern exists, create a new one
-            new_pattern = MoodPattern(user_id=user.id, pattern=mood)
-            session.add(new_pattern)
-            session.commit()
-        
-        click.echo(f"Mood pattern updated: {mood}")
-
-def suggest_journal_entry(user):
-    """Suggest journal entry topics based on past mood patterns."""
-    with SessionLocal() as session:
-        entries = session.query(JournalEntry).filter_by(user_id=user.id).order_by(JournalEntry.date.desc()).limit(5).all()
-    
-    if not entries:
-        click.echo("No recent journal entries available for suggestions.")
-        return
-
-    recent_moods = [entry.mood for entry in entries]
-    mood_counts = {mood: recent_moods.count(mood) for mood in set(recent_moods)}
-    most_common_mood = max(mood_counts, key=mood_counts.get)
-
-    suggestions = {
-        'happy': "You seem to be in good spirits lately! Write about what’s been bringing you joy.",
-        'sad': "It's okay to feel down. Maybe journaling about your thoughts can help.",
-        'neutral': "Reflect on your day-to-day. What small changes could bring more joy?",
-        'stressed': "It seems like stress has been present. How do you cope with it?",
-    }
-
-    suggestion = suggestions.get(most_common_mood, "How about reflecting on your recent experiences?")
-    click.echo(f"\n--- Journal Entry Suggestion ---\n{suggestion}")
-
-def display_motivational_quote():
-    """Display a random motivational quote after a journal entry."""
-    motivational_quotes = [
-        "Believe in yourself! You are capable of more than you know.",
-        "This too shall pass.",
-        "Every day is a new beginning. Take a deep breath and start again.",
-        "You are stronger than you think.",
-        "Positivity always wins!"
-    ]
-    quote = random.choice(motivational_quotes)
-    click.echo(f"\n--- Daily Affirmation ---\n{quote}")
-
-def analyze_mood_patterns(user):
-    """Analyzes mood patterns and detects fluctuations in mood."""
-    with SessionLocal() as session:
-        entries = session.query(JournalEntry).filter_by(user_id=user.id).order_by(JournalEntry.date).all()
-    
-    if not entries:
-        click.echo("No journal entries found for mood analysis.")
-        return
-
-    mood_fluctuations = []
-    mood_count = defaultdict(int)
-    previous_mood = entries[0].mood  # Start with the first mood
-    mood_count[previous_mood] += 1  # Count the first mood
-
-    for entry in entries[1:]:
-        current_mood = entry.mood
-        mood_count[current_mood] += 1
-        # Check for a change in mood
-        if previous_mood != current_mood:
-            mood_fluctuations.append((entry.date, previous_mood, current_mood))
-        previous_mood = current_mood
-
-    # Display results
-    if mood_fluctuations:
-        click.echo("\n--- Mood Fluctuations Detected ---")
-        for date, old_mood, new_mood in mood_fluctuations:
-            click.echo(f"On {date}, mood changed from {old_mood} to {new_mood}.")
-    else:
-        click.echo("No significant mood fluctuations detected.")
-
-    # Display mood statistics
-    click.echo("\n--- Mood Statistics ---")
-    for mood, count in mood_count.items():
-        click.echo(f"{mood}: {count} times")
-
-    # Calculate and display average mood
-    mood_scale = {
-        "very_happy": 5,
-        "happy": 4,
-        "neutral": 3,
-        "sad": 2,
-        "very_sad": 1,
-    }
-    
-    total_mood_value = sum(mood_scale.get(mood, 3) * count for mood, count in mood_count.items())
-    total_entries = sum(mood_count.values())
-    average_mood = total_mood_value / total_entries if total_entries > 0 else 3  # Default to neutral
-    click.echo(f"Average mood: {average_mood:.2f} (on a scale of 1-5)")
-
-    # Prompt for feedback
-    feedback = click.prompt("Do you feel this analysis reflects your mood trends? (yes/no)", type=str)
-    click.echo(f"Feedback received: {feedback}")
-
-    # Respond to feedback
-    if feedback.lower() == 'no':
-        click.echo("I'm sorry to hear that! Can you tell me what you feel was missing in this analysis?")
-        specific_feedback = click.prompt("Your thoughts: ")
-       
-
-    # Provide suggestions based on mood
-    if average_mood < 3:
-        click.echo("It seems like your average mood is leaning towards the negative side. Here are some suggestions:")
-        click.echo("- Consider taking a short walk to clear your mind.")
-        click.echo("- Try writing down things you're grateful for.")
-        click.echo("- Remember to reach out to friends or loved ones for support.")
-    elif average_mood > 4:
-        click.echo("Great to see your mood is positive! Keep it up!")
-    else:
-        click.echo("Your mood seems neutral. Perhaps engage in an activity that brings you joy!")
 
 def journal_entry_menu(user):
     """Journal entry management menu for the logged-in user"""
@@ -260,6 +117,24 @@ def journal_entry_menu(user):
             break
         else:
             click.echo("Invalid choice. Please enter a number between 1 and 6.")
+
+def create_journal_entry(user):
+    """Creates a new journal entry for the logged-in user"""
+    mood = click.prompt("How are you feeling today?")
+    content = click.prompt("What's on your mind?", default="", show_default=False)
+    entry = JournalEntry(user_id=user.id, date=date.today(), mood=mood, content=content)
+    
+    with SessionLocal() as session:
+        session.add(entry)
+        session.commit()
+    click.echo("Journal entry created successfully!")
+    
+    # Update mood patterns based on the new entry
+    update_mood_patterns(user, mood)
+
+    # Display suggestions and motivational quote
+    suggest_journal_entry(user)
+    display_motivational_quote()
 
 def view_journal_entries(user):
     """View all journal entries for the logged-in user"""
@@ -327,6 +202,110 @@ def delete_journal_entry(user):
         click.echo("Journal entry deleted successfully!")
     except Exception as e:
         click.echo(f"An error occurred while deleting the entry: {e}")
+
+def update_mood_patterns(user, mood):
+    """Updates mood patterns based on the latest journal entry."""
+    with SessionLocal() as session:
+        mood_pattern = session.query(MoodPattern).filter_by(user_id=user.id).first()
+        
+        if mood_pattern:
+            mood_pattern.pattern += f", {mood}"  
+            session.commit()
+        else:
+            new_pattern = MoodPattern(user_id=user.id, pattern=mood)
+            session.add(new_pattern)
+            session.commit()
+        
+        click.echo(f"Mood pattern updated: {mood}")
+
+def suggest_journal_entry(user):
+    """Suggest journal entry topics based on past mood patterns."""
+    with SessionLocal() as session:
+        entries = session.query(JournalEntry).filter_by(user_id=user.id).order_by(JournalEntry.date.desc()).limit(5).all()
+    
+    if not entries:
+        click.echo("No recent journal entries available for suggestions.")
+        return
+
+    recent_moods = [entry.mood for entry in entries]
+    mood_counts = {mood: recent_moods.count(mood) for mood in set(recent_moods)}
+    most_common_mood = max(mood_counts, key=mood_counts.get)
+
+    suggestions = {
+        'happy': "You seem to be in good spirits lately! Write about what’s been bringing you joy.",
+        'sad': "It's okay to feel down. Maybe journaling about your thoughts can help.",
+        'neutral': "Reflect on your day-to-day. What small changes could bring more joy?",
+        'stressed': "It seems like stress has been present. How do you cope with it?",
+    }
+
+    suggestion = suggestions.get(most_common_mood, "How about reflecting on your recent experiences?")
+    click.echo(f"\n--- Journal Entry Suggestion ---\n{suggestion}")
+
+def display_motivational_quote():
+    """Display a random motivational quote after a journal entry."""
+    motivational_quotes = [
+        "Believe in yourself! You are capable of more than you know.",
+        "This too shall pass.",
+        "Every day is a new beginning. Take a deep breath and start again.",
+        "You are stronger than you think.",
+        "Positivity always wins!"
+    ]
+    quote = random.choice(motivational_quotes)
+    click.echo(f"\n--- Daily Affirmation ---\n{quote}")
+
+def analyze_mood_patterns(user):
+    """Analyzes mood patterns for the user"""
+    with SessionLocal() as session:
+        patterns = session.query(MoodPattern).filter_by(user_id=user.id).first()
+
+    if not patterns:
+        click.echo("No mood patterns found for analysis.")
+        return
+
+    pattern_list = patterns.pattern.split(", ")
+    mood_frequency = defaultdict(int)
+
+    for mood in pattern_list:
+        mood_frequency[mood] += 1
+
+    # Display mood statistics
+    click.echo("\n--- Mood Statistics ---")
+    for mood, count in mood_frequency.items():
+        click.echo(f"{mood}: {count} times")
+
+    # Calculate and display average mood
+    mood_scale = {
+        "very_happy": 5,
+        "happy": 4,
+        "neutral": 3,
+        "sad": 2,
+        "very_sad": 1,
+    }
+    
+    total_mood_value = sum(mood_scale.get(mood, 3) * count for mood, count in mood_frequency.items())
+    total_entries = sum(mood_frequency.values())
+    average_mood = total_mood_value / total_entries if total_entries > 0 else 3  # Default to neutral
+    click.echo(f"Average mood: {average_mood:.2f} (on a scale of 1-5)")
+
+    # Prompt for feedback
+    feedback = click.prompt("Do you feel this analysis reflects your mood trends? (yes/no)", type=str)
+    click.echo(f"Feedback received: {feedback}")
+
+    # Respond to feedback
+    if feedback.lower() == 'no':
+        click.echo("I'm sorry to hear that! Can you tell me what you feel was missing in this analysis?")
+        specific_feedback = click.prompt("Your thoughts: ")
+
+    # Provide suggestions based on mood
+    if average_mood < 3:
+        click.echo("It seems like your average mood is leaning towards the negative side. Here are some suggestions:")
+        click.echo("- Consider taking a short walk to clear your mind.")
+        click.echo("- Try writing down things you're grateful for.")
+        click.echo("- Remember to reach out to friends or loved ones for support.")
+    elif average_mood > 4:
+        click.echo("Great to see your mood is positive! Keep it up!")
+    else:
+        click.echo("Your mood seems neutral. Perhaps engage in an activity that brings you joy!")
 
 if __name__ == "__main__":
     cli()
